@@ -1,61 +1,13 @@
 const http = require('http');
 const url = require('url');
 const fs = require('fs');
-const { userInfo } = require('os');
+const { v4: uuidv4 } = require('uuid');
 
 
 const server = http.createServer((req, res) => {
 
-    let deportes = [];
-    try {
-        deportes = JSON.parse(fs.readFileSync('deportes.json'));
-    } catch (error) {
-        console.log('no se puede leer el archivo');
-    }
-
-    //crear archivo, agregar deportes:
-    if (req.url.includes('/agregar')) {
-        const {nombre, precio} = url.parse(req.url, true).query;
-
-        deportes.push({nombre, precio});
-        fs.writeFile('deportes.json', JSON.stringify(deportes), (err) => {
-            if (err) return res.end('error');
-            res.end('Deporte agregado');
-        });
-    }
-
-    //leer deportes:
-    if (req.url.includes('/deportes')) {
-        res.end(JSON.stringify(deportes));
-    }
-
-    //Eliminar deporte
-    if (req.url.includes('/eliminar')) {
-        const {nombre} = url.parse(req.url, true).query;
-        if (!nombre) return res.end('Deporte no encontrado');
-
-        deportes = deportes.filter((deporte) => deporte.nombre !== nombre);
-        fs.writeFile('deportes.json', JSON.stringify(deportes), (err) => {
-            res.end('Deporte eliminado');
-        });
-    }
-
-    //Editar precio
-    if (req.url.includes('/editar')) {
-        const {nombre, precio} = url.parse(req.url, true).query;
-
-        deportes = deportes.map((deporte) => {
-            if (deporte.nombre === nombre) {
-                deporte.precio = precio;
-            }
-            return deporte;
-        });
-
-        fs.writeFile('deportes.json', JSON.stringify(deportes), (err) => {
-            if (err) return res.end('Error al editar precio');
-            res.end('Precio editado');
-        });
-    }
+    let { deportes } = JSON.parse(fs.readFileSync('deportes.json'));
+    console.log(deportes);
 
     //abrir html
     if (req.url === ('/')) {
@@ -64,9 +16,88 @@ const server = http.createServer((req, res) => {
             res.writeHead(200, {"Content-Type": "text/html"});
             return res.end(html);
         });
-
     }
 
+    //leer deportes:
+    if (req.url.includes('/deportes') && req.method === "GET") {
+        res.end(JSON.stringify(deportes));
+    }
+
+    //crear archivo, agregar deportes (V1)
+    if (req.url === '/deportes' && req.method === "POST") {
+
+        let respuesta = ''
+        req.on('data', (body) => {
+            respuesta += body
+        })
+
+        req.on('end', () => {
+            const deporte = JSON.parse(respuesta);
+            deporte.id = uuidv4();
+            deportes.push(deporte);
+            console.log(deporte);
+
+            fs.writeFile('deportes.json', JSON.stringify({deportes}), (err) => {
+                res.writeHead(201, {"Content-Type": "application/json"})
+                res.end(JSON.stringify(deportes));
+                if (err) return res.end('Error al agregar deporte');
+                res.end('Deporte agregado');
+            });  
+             
+        });
+    }
+
+    //Editar precio
+    if (req.url === '/deportes' && req.method == "PUT") {
+        let respuesta = ''
+        req.on('data', (body) => {
+            respuesta += body
+        })
+        
+        req.on('end', () => {
+            const deporte = JSON.parse(respuesta);
+
+            deportes = deportes.map(d => {
+                if (d.nombre === deporte.nombre) {
+                    d = deporte;
+                }
+                return d;
+            })
+    
+            fs.writeFile('deportes.json', JSON.stringify({deportes}), (err) => {
+                res.writeHead(200, {"Content-Type": "application/json"})
+                res.end(JSON.stringify(deportes));
+                if (err) return res.end('Error al editar precio');
+                res.end('Precio editado');
+            });
+        }); 
+    }
+
+    //Eliminar deporte
+    if (req.url === '/deportes' && req.method === 'DELETE') {
+        let respuesta = ''
+        req.on('data', (body) => {
+            respuesta += body
+        })
+
+        req.on('end', () => {
+            const {nombre} = JSON.parse(respuesta);
+
+            if(!nombre) return res.end('deporte no encontrado');
+
+            deportes = deportes.filter((d) => d.nombre !== nombre);
+
+            fs.writeFile('deportes.json', JSON.stringify({deportes}), (err) => {
+                res.writeHead(200, {"Content-Type": "application/json"})
+                res.end(JSON.stringify(deportes));
+                if (err) return res.end('Error al editar precio');
+                res.end('Precio editado');
+            });
+        });
+         
+    }
 });
 
 server.listen(3000, () => console.log('Servidor OK'));
+
+module.exports = server;

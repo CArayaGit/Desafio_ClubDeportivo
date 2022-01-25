@@ -1,1 +1,1 @@
-[{"nombre":"tenis","precio":"25000"},{"nombre":"tacataca","precio":"18000"}]
+{"deportes":[{"nombre":"tenis","precio":"1000","id":"a001"},{"nombre":"tacataca","precio":"13000","id":"a001"}]}
